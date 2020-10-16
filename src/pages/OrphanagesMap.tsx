@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,41 +11,66 @@ import MapView, { PROVIDER_GOOGLE, Marker, Callout } from "react-native-maps";
 
 import mapMarker from "../images/map-marker.png";
 import { useNavigation } from "@react-navigation/native";
+import * as Location from "expo-location";
 
 export default function OrphanagesMap() {
+  const [locationCoordinates, setLocationCoordinates] = useState<
+    Location.LocationObject
+  >();
   const navigation = useNavigation();
 
   function handleNavigateToOrphanageDetails() {
     navigation.navigate("OrphanageDetails");
   }
 
+  async function loadUserLocation() {
+    try {
+      let { status } = await Location.requestPermissionsAsync();
+      if (status !== "granted") {
+        return;
+      }
+      let location = await Location.getCurrentPositionAsync({});
+      setLocationCoordinates(location);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  useEffect(() => {
+    loadUserLocation();
+  }, []);
+
+  console.log("initial position expo locatiom", locationCoordinates);
+
   return (
     <View style={styles.container}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: -25.4523975,
-          longitude: -49.3072483,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
-        }}
-      >
-        <Marker
-          icon={mapMarker}
-          coordinate={{ latitude: -25.4523975, longitude: -49.3072483 }}
-          calloutAnchor={{
-            x: 2.7,
-            y: 0.8,
+      {locationCoordinates && (
+        <MapView
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          initialRegion={{
+            latitude: Number(locationCoordinates?.coords.latitude),
+            longitude: Number(locationCoordinates?.coords.longitude),
+            latitudeDelta: 0.008,
+            longitudeDelta: 0.008,
           }}
         >
-          <Callout tooltip onPress={handleNavigateToOrphanageDetails}>
-            <View style={styles.calloutContainer}>
-              <Text style={styles.calloutText}>Lar das Meninas</Text>
-            </View>
-          </Callout>
-        </Marker>
-      </MapView>
+          <Marker
+            icon={mapMarker}
+            coordinate={{ latitude: -25.4523975, longitude: -49.3072483 }}
+            calloutAnchor={{
+              x: 2.7,
+              y: 0.8,
+            }}
+          >
+            <Callout tooltip onPress={handleNavigateToOrphanageDetails}>
+              <View style={styles.calloutContainer}>
+                <Text style={styles.calloutText}>Lar das Meninas</Text>
+              </View>
+            </Callout>
+          </Marker>
+        </MapView>
+      )}
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>2 orfanatos encontrados</Text>
