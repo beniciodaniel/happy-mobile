@@ -1,26 +1,36 @@
 import React, { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Dimensions,
-  TouchableOpacity,
-} from "react-native";
+import { StyleSheet, Text, View, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import MapView, { PROVIDER_GOOGLE, Marker, Callout } from "react-native-maps";
+import { useNavigation } from "@react-navigation/native";
+import { RectButton } from "react-native-gesture-handler";
 
 import mapMarker from "../images/map-marker.png";
-import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
+import api from "../services/api";
+
+interface IOrphanagesProps {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+}
 
 export default function OrphanagesMap() {
   const [locationCoordinates, setLocationCoordinates] = useState<
     Location.LocationObject
   >();
+
+  const [orphanages, setOrphanages] = useState<IOrphanagesProps[]>([]);
+
   const navigation = useNavigation();
 
-  function handleNavigateToOrphanageDetails() {
-    navigation.navigate("OrphanageDetails");
+  function handleNavigateToOrphanageDetails(id: number) {
+    navigation.navigate("OrphanageDetails", { id });
+  }
+
+  function handleNavigateToCreateOrphanage() {
+    navigation.navigate("SelectMapPosition");
   }
 
   async function loadUserLocation() {
@@ -36,11 +46,23 @@ export default function OrphanagesMap() {
     }
   }
 
+  async function loadDataFromApi() {
+    const response = await api.get("/orphanages");
+    setOrphanages(response.data);
+  }
+
   useEffect(() => {
     loadUserLocation();
+    loadDataFromApi();
   }, []);
 
-  console.log("initial position expo locatiom", locationCoordinates);
+  if (!locationCoordinates) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -55,32 +77,44 @@ export default function OrphanagesMap() {
             longitudeDelta: 0.008,
           }}
         >
-          <Marker
-            icon={mapMarker}
-            coordinate={{ latitude: -25.4523975, longitude: -49.3072483 }}
-            calloutAnchor={{
-              x: 2.7,
-              y: 0.8,
-            }}
-          >
-            <Callout tooltip onPress={handleNavigateToOrphanageDetails}>
-              <View style={styles.calloutContainer}>
-                <Text style={styles.calloutText}>Lar das Meninas</Text>
-              </View>
-            </Callout>
-          </Marker>
+          {orphanages &&
+            orphanages.map((orphanage) => (
+              <Marker
+                key={orphanage.id}
+                icon={mapMarker}
+                coordinate={{
+                  latitude: orphanage.latitude,
+                  longitude: orphanage.longitude,
+                }}
+                calloutAnchor={{
+                  x: 2.7,
+                  y: 0.8,
+                }}
+              >
+                <Callout
+                  tooltip
+                  onPress={() => handleNavigateToOrphanageDetails(orphanage.id)}
+                >
+                  <View style={styles.calloutContainer}>
+                    <Text style={styles.calloutText}>{orphanage.name}</Text>
+                  </View>
+                </Callout>
+              </Marker>
+            ))}
         </MapView>
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>2 orfanatos encontrados</Text>
+        <Text style={styles.footerText}>
+          {orphanages.length} orfanatos encontrados
+        </Text>
 
-        <TouchableOpacity
+        <RectButton
           style={styles.createOrphanageButton}
-          onPress={() => {}}
+          onPress={handleNavigateToCreateOrphanage}
         >
           <Feather name="plus" size={20} color="#FFF" />
-        </TouchableOpacity>
+        </RectButton>
       </View>
     </View>
   );
@@ -106,6 +140,18 @@ const styles = StyleSheet.create({
   },
 
   calloutText: {
+    color: "#0089a5",
+    fontSize: 14,
+    fontFamily: "Nunito_700Bold",
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
     color: "#0089a5",
     fontSize: 14,
     fontFamily: "Nunito_700Bold",
