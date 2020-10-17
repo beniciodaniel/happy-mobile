@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import MapView, { PROVIDER_GOOGLE, Marker, Callout } from "react-native-maps";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { RectButton } from "react-native-gesture-handler";
 
 import mapMarker from "../images/map-marker.png";
-import * as Location from "expo-location";
 import api from "../services/api";
 
 interface IOrphanagesProps {
@@ -17,13 +16,9 @@ interface IOrphanagesProps {
 }
 
 export default function OrphanagesMap() {
-  const [locationCoordinates, setLocationCoordinates] = useState<
-    Location.LocationObject
-  >();
+  const navigation = useNavigation();
 
   const [orphanages, setOrphanages] = useState<IOrphanagesProps[]>([]);
-
-  const navigation = useNavigation();
 
   function handleNavigateToOrphanageDetails(id: number) {
     navigation.navigate("OrphanageDetails", { id });
@@ -33,30 +28,16 @@ export default function OrphanagesMap() {
     navigation.navigate("SelectMapPosition");
   }
 
-  async function loadUserLocation() {
-    try {
-      let { status } = await Location.requestPermissionsAsync();
-      if (status !== "granted") {
-        return;
-      }
-      let location = await Location.getCurrentPositionAsync({});
-      setLocationCoordinates(location);
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  async function loadDataFromApi() {
+  const loadDataFromApi = useCallback(async () => {
     const response = await api.get("/orphanages");
     setOrphanages(response.data);
-  }
+  }, [orphanages]);
 
-  useEffect(() => {
-    loadUserLocation();
+  useFocusEffect(() => {
     loadDataFromApi();
-  }, []);
+  });
 
-  if (!locationCoordinates) {
+  if (!orphanages) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Carregando...</Text>
@@ -66,43 +47,43 @@ export default function OrphanagesMap() {
 
   return (
     <View style={styles.container}>
-      {locationCoordinates && (
-        <MapView
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={{
-            latitude: Number(locationCoordinates?.coords.latitude),
-            longitude: Number(locationCoordinates?.coords.longitude),
-            latitudeDelta: 0.008,
-            longitudeDelta: 0.008,
-          }}
-        >
-          {orphanages &&
-            orphanages.map((orphanage) => (
-              <Marker
-                key={orphanage.id}
-                icon={mapMarker}
-                coordinate={{
-                  latitude: orphanage.latitude,
-                  longitude: orphanage.longitude,
-                }}
-                calloutAnchor={{
-                  x: 2.7,
-                  y: 0.8,
-                }}
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={styles.map}
+        initialRegion={{
+          // latitude: Number(locationCoordinates?.coords.latitude),
+          // longitude: Number(locationCoordinates?.coords.longitude),
+          latitude: -25.5141314,
+          longitude: -49.3116077,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        }}
+      >
+        {orphanages &&
+          orphanages.map((orphanage) => (
+            <Marker
+              key={orphanage.id}
+              icon={mapMarker}
+              coordinate={{
+                latitude: orphanage.latitude,
+                longitude: orphanage.longitude,
+              }}
+              calloutAnchor={{
+                x: 2.7,
+                y: 0.8,
+              }}
+            >
+              <Callout
+                tooltip
+                onPress={() => handleNavigateToOrphanageDetails(orphanage.id)}
               >
-                <Callout
-                  tooltip
-                  onPress={() => handleNavigateToOrphanageDetails(orphanage.id)}
-                >
-                  <View style={styles.calloutContainer}>
-                    <Text style={styles.calloutText}>{orphanage.name}</Text>
-                  </View>
-                </Callout>
-              </Marker>
-            ))}
-        </MapView>
-      )}
+                <View style={styles.calloutContainer}>
+                  <Text style={styles.calloutText}>{orphanage.name}</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+      </MapView>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
